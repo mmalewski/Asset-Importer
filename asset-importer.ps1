@@ -7,6 +7,8 @@
 #               Now can make node groups for materials with no submaterials (like many of the purchasables)
 # Version 1.0:  For use with .obj files created with cgf-converter.exe (https://github.com/Markemp/Cryengine-Converter/)
 
+# TODO:  convert to work with Collada files, update the node hierarchy to be right.
+
 # No input necessary.  It will look for each .obj and .mtl file in the current directory, and create an import.py
 # file that you can cut/paste into the python console.
 
