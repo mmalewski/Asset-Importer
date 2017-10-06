@@ -243,24 +243,21 @@ foreach ($file in (Get-ChildItem -filter "*.dae")) {
     #  import each dae file
     # Time to generate the commands (in $parsedline, an array)
     " " >> .\import.txt
-    "### Importing $file.name" >> .\import.txt
+    "### Importing $file" >> .\import.txt
 	$parsedline = @()
     $directory = $file.DirectoryName.Replace("\","\\")
     $filename = $file.Name
     $objectname = $filename.Substring(0,($filename.Length-4))
 
-    # convert file to filepath for Blender
-
     #$parsedline += $scriptimport + "(filepath=`"$directory\\$filename`",use_groups_as_vgroups=True,split_mode=`'OFF`',axis_forward=`'-X`',axis_up=`'Z`')" 
 	$parsedline += $scriptimportCollada + "(filepath='$directory\\$filename',find_chains=True,auto_connect=True)" 
 
-    # set new object as the active object
     # Set $objectname to active object
     $parsedline += $scriptscene + "=bpy.data.objects[`"$objectname`"]"
     $parsedline += $scriptclearmaterial
 	# for each material in the library_materials, add it to the object's materials.
 	[xml] $daeFile = get-content ($directory+ "\" + $filename)
-	$daeFile.COLLADA.library_materials | % {
+	$daeFile.COLLADA.library_materials.material | % {
 		$mat = $_.name
 		$parsedline += "bpy.context.object.data.materials.append($mat)"
 	}
