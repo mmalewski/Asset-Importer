@@ -14,32 +14,12 @@
 
 # Input:  the directory to all the .dae files put in.
 
-function Get-Usage {
-    Write-host "Usage:  asset-importer.ps1 [-objectdir `"<directory to \Object>`"]" -ForegroundColor Yellow
-	Write-Host "        Goes through a directory looking for .dae files created from cgf-converter and makes"
-	Write-Host "        an import.txt file with the import information for all the files in the directory.  This"
-	Write-Host "        can be pasted into the Blender python console.  This will also create the proper Cycles "
-	Write-Host "        material for each of the objects imported."
-	Write-Host
-    Write-Host "        Please update the script before running.  The following variables need to be properly defined:"
-    Write-Host "             `$basedir:  Where you extracted the object.pak files (and skins)"
-    Write-Host "             `$imageformat:  What image format you are using (default .dds)"
-    Write-Host
-    pause
-    exit
-}
-
-function Create-Material {
-
-}
-
-$basedir = "d:\blender projects\mechs"  # this is where you extracted all the *.pak files from the game. \objects, \textures etc
-#$basedir = "e:\blender projects\Star Citizen"  
-                                        # will be under this dir
-$imageformat = ".dds"                   # Default image file format.  If you want to use .pngs, change this
-
-# convert the path so it can be used by Blender
-$basedir = $basedir.replace("\","\\")
+param (
+	[string]$objectdir,                   # Where the game .pak files are extracted to.
+	[switch]$dae = $true,                 # Defaults to Collada.  If cgf-exporter gets more exporters, there will be more options for this.
+	[switch]$obj = $false,
+	[string]$imageformat = "dds"          # Default image file format.  If you want to use .pngs, change this (although you probably don't want to.
+)
 
 # Python commands used by Blender
 $scriptimport = "bpy.ops.import_scene.obj"
@@ -52,9 +32,58 @@ $scriptseteditmode = "bpy.ops.object.mode_set(mode = `"EDIT`")"
 $scriptsetobjectmode = "bpy.ops.object.mode_set(mode = `"OBJECT`")"
 #$scriptclearmaterial = "bpy.context.object.data.materials.pop(0, update_data=True)"
 $scriptclearmaterial = "bpy.context.object.data.materials.clear(update_data=True)"   #only works with 2.69 or newer
+
+function Get-Usage {
+    Write-host "Usage:  asset-importer.ps1 [-objectdir `"<directory to \Object>`"] <[-dae]|[-obj]> <-imageformat [dds|tif]>" -ForegroundColor Green
+	Write-Host "        Goes through a directory looking for .dae files created from cgf-converter and makes"
+	Write-Host "        an import.txt file with the import information for all the files in the directory.  This"
+	Write-Host "        can be pasted into the Blender python console.  This will also create the proper Cycles "
+	Write-Host "        material for each of the objects imported."
+	Write-Host
+    Write-Host "        Please update the script before running.  The following variables need to be properly defined:"
+    Write-Host "             `$basedir:  Where you extracted the object.pak files (and skins)"
+    Write-Host "             `$imageformat:  What image format you are using (default .dds)"
+    Write-Host
+	Write-Host "        This will only fully work when imported into Blender 2.79 or newer, as it uses the PrincipledBSDF shader."
+
+    pause
+    exit
+}
+
+function Create-Material {
+
+}
+
+# Generic error checking
+if ($PSVersionTable.PSVersion.Major -lt 3) {
+	Write-Host "Requires at least Powershell version 3.  This computer is currently using version $PSVersionTable.PSVersion.Major" -ForegroundColor Yellow
+	exit 1
+}
+
+# Argument processing and cleanup
+# $type determines if you're using Collada or Waveform files.  Defaults to Collada.
+$type = "Collada"
+if (!$dae -and $obj) {
+	$type = "Waveform"
+} 
+
+if (!$objectdir) {
+	Write-Host "No -objectdir specified.  Will default to d:\blender projects\mechs\.  THIS IS PROBABLY NOT WHAT YOU WANT." -ForegroundColor Yellow
+	$basedir = "d:\blender projects\mechs\"    # this is where you extracted all the *.pak files from the game. \objects, \textures etc.  This is my settings
+} 
+else {
+	$basedir = $objectdir
+	if (!$basedir.EndsWith('\')) {
+		$basedir += '\'
+	}
+}
+
+# convert the path so it can be used by Blender
+$basedir = $basedir.replace("\","\\")
+
 # Delete import.txt if it already exists.
 try {
-	$importtxt = Get-ChildItem "import.txt"
+	$importtxt = Get-ChildItem "import.txt" -ErrorAction SilentlyContinue
 	Remove-Item $importtxt
 }
 catch  {
@@ -62,8 +91,10 @@ catch  {
 	Write-Host "No existing import.txt file found. (this is ok)"
 }
 
-"# Asset Importer 2.0" >> .\import.txt
-"#" >> .\import.txt
+"# Asset Importer 2.0
+# https://www.heffaypresents.com/GitHub
+#
+" >> .\import.txt
 
 # Set Blender to Cycles
 "bpy.context.scene.render.engine = 'CYCLES'" >> .\import.txt
@@ -72,7 +103,6 @@ catch  {
 [System.Collections.ArrayList]$materialList = New-Object System.Collections.ArrayList
 
 foreach ($file in (get-childitem -filter *.mtl) ) {        # create material for each material in the .mtl files
-
     Write-Host "Material file is $file"
 
     # *** MATERIALS ***
