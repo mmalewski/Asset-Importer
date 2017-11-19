@@ -18,7 +18,7 @@ param (
 	[string]$objectdir,                   # Where the game .pak files are extracted to.
 	[switch]$dae = $true,                 # Defaults to Collada.  If cgf-exporter gets more exporters, there will be more options for this.
 	[switch]$obj = $false,
-	[string]$imageformat = "dds"          # Default image file format.  If you want to use .pngs, change this (although you probably don't want to.
+	[string]$imageformat = ".dds"          # Default image file format.  If you want to use .pngs, change this (although you probably don't want to.
 )
 
 # Python commands used by Blender
@@ -91,7 +91,7 @@ catch  {
 	Write-Host "No existing import.txt file found. (this is ok)"
 }
 
-"# Asset Importer 2.0
+"# Asset Importer 2.0.2
 # https://www.heffaypresents.com/GitHub
 #
 " >> .\import.txt
@@ -117,7 +117,7 @@ foreach ($file in (get-childitem -filter *.mtl) ) {        # create material for
         #write-host "File is $file"
         #$material = $matfile.Material
         #Write-host "Material flag is $material.mtlflags"
-        $matname = $file.name.Substring(0,($file.tostring().Length-4))   # make $matname the name of the material file
+        $matname = "b_" + $file.name.Substring(0,($file.tostring().Length-4))   # make $matname the name of the material file
 		if (!($materialList -contains $matname)) 
 		{
 		        " " >> .\import.txt
@@ -141,12 +141,10 @@ shout=TreeNodes.nodes.new('ShaderNodeOutputMaterial')
 shout.location = 500,500
 links.new(shaderPrincipledBSDF.outputs[0], shout.inputs[0])
 " >> .\import.txt
-
-
 			$matfile.Material.Textures.texture | % {
 			if ( $_.Map -eq "Diffuse") {
 				#Diffuse Material
-				$matdiffuse = $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace("/","\\")  #assumes diffuse is in slot 0
+				$matdiffuse = $_.file.replace(".tif", $imageformat).replace(".dds", $imageformat).replace("/","\\")  #assumes diffuse is in slot 0
 "matDiffuse = bpy.data.images.load(filepath=`"$basedir\\$matdiffuse`", check_existing=True)
 shaderDiffImg=TreeNodes.nodes.new('ShaderNodeTexImage')
 shaderDiffImg.image=matDiffuse
@@ -154,10 +152,9 @@ shaderDiffImg.location = 0,600
 links.new(shaderDiffImg.outputs[0], shaderPrincipledBSDF.inputs[0])
 " >> .\import.txt
 				}
-                        
 			if ($_.Map -eq "Specular") {
 				# Specular
-				$matspec =  $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace("/","\\") 
+				$matspec =  $_.file.replace(".tif","$imageformat").replace(".dds", $imageformat).replace("/","\\") 
 "matSpec=bpy.data.images.load(filepath='$basedir\\$matspec', check_existing=True)
 shaderSpecImg=TreeNodes.nodes.new('ShaderNodeTexImage')
 shaderSpecImg.color_space = 'NONE'
@@ -166,10 +163,9 @@ shaderSpecImg.location = 0,325
 links.new(shaderSpecImg.outputs[0], shaderPrincipledBSDF.inputs[5])
 " >> .\import.txt
 				}   
-                    
 			if ($_.Map -eq "Bumpmap") {
 				# Normal
-				$matnormal =  $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace("/","\\") 
+				$matnormal =  $_.file.replace(".tif","$imageformat").replace(".dds", $imageformat).replace("/","\\") 
 "matNormal=bpy.data.images.load(filepath=`"$basedir\\$matnormal`", check_existing=True)
 shaderNormalImg=TreeNodes.nodes.new('ShaderNodeTexImage')
 shaderNormalImg.color_space = 'NONE'
@@ -185,50 +181,50 @@ links.new(converterNormalMap.outputs[0], shaderPrincipledBSDF.inputs[17])
 			}
         }
     } # Material file with no submaterials.
-	else 
+	else  # Material file with multiple materials
 	{
         $matfile.Material.SubMaterials.Material| % {
             $material = $_
-            $matname = $material.Name   # $matname is the name of the material
+            $matname = "b_" + $material.Name   # $matname is the name of the material
 			if (!($materialList -contains $matName)) {
 				"" >> .\import.txt
 				"### START Material:  $matname" >> .\import.txt
 				$materialList.Add($matname)
-				if (!($matname -eq "Proxy") ) {
-					"$matname=bpy.data.materials.new('$matname')"  >> .\import.txt
-					"$matname.use_nodes=True" >> .\import.txt
-					"$matname.active_node_material" >> .\import.txt
-					"TreeNodes = $matname.node_tree" >> .\import.txt
-					"links = TreeNodes.links" >> .\import.txt
+				"$matname=bpy.data.materials.new('$matname')"  >> .\import.txt
+				"$matname.use_nodes=True" >> .\import.txt
+				"$matname.active_node_material" >> .\import.txt
+				"TreeNodes = $matname.node_tree" >> .\import.txt
+				"links = TreeNodes.links" >> .\import.txt
 
-					"for n in TreeNodes.nodes:" >> .\import.txt
-					"    TreeNodes.nodes.remove(n)" >> .\import.txt
-					" " >> .\import.txt
+				"for n in TreeNodes.nodes:" >> .\import.txt
+				"    TreeNodes.nodes.remove(n)" >> .\import.txt
+				" " >> .\import.txt
 
-					write-host "Material Name is $matname"
-					$_.textures.Texture  | % {
-
-						# Every material will have a PrincipleBSDF and Material output.  Add, place and link those
+				write-host "Material Name is $matname"
+				# Every material will have a PrincipleBSDF and Material output.  Add, place and link those
 "shaderPrincipledBSDF = TreeNodes.nodes.new('ShaderNodeBsdfPrincipled')
 shaderPrincipledBSDF.location =  300,500
 shout=TreeNodes.nodes.new('ShaderNodeOutputMaterial')
 shout.location = 500,500
 links.new(shaderPrincipledBSDF.outputs[0], shout.inputs[0])
 " >> .\import.txt
-						if ( $_.Map -eq "Diffuse") {
-							#Diffuse Material
-							$matdiffuse = $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace("/","\\")  #assumes diffuse is in slot 0
+
+				$_.textures.Texture  | % {
+
+					if ( $_.Map -eq "Diffuse") {
+						#Diffuse Material
+						$matdiffuse = $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace("/","\\")  #assumes diffuse is in slot 0
 "matDiffuse = bpy.data.images.load(filepath=`"$basedir\\$matdiffuse`", check_existing=True)
 shaderDiffImg=TreeNodes.nodes.new('ShaderNodeTexImage')
 shaderDiffImg.image=matDiffuse
 shaderDiffImg.location = 0,600
 links.new(shaderDiffImg.outputs[0], shaderPrincipledBSDF.inputs[0])
 " >> .\import.txt
-							}
+						}
                         
-						if ($_.Map -eq "Specular") {
-							# Specular
-							$matspec =  $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace("/","\\") 
+					if ($_.Map -eq "Specular") {
+						# Specular
+						$matspec =  $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace("/","\\") 
 "matSpec=bpy.data.images.load(filepath='$basedir\\$matspec', check_existing=True)
 shaderSpecImg=TreeNodes.nodes.new('ShaderNodeTexImage')
 shaderSpecImg.color_space = 'NONE'
@@ -236,11 +232,11 @@ shaderSpecImg.image=matSpec
 shaderSpecImg.location = 0,325
 links.new(shaderSpecImg.outputs[0], shaderPrincipledBSDF.inputs[5])
 " >> .\import.txt
-							}   
+						}   
                     
-						if ($_.Map -eq "Bumpmap") {
-							# Normal
-							$matnormal =  $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace("/","\\") 
+					if ($_.Map -eq "Bumpmap") {
+						# Normal
+						$matnormal =  $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace("/","\\") 
 "matNormal=bpy.data.images.load(filepath=`"$basedir\\$matnormal`", check_existing=True)
 shaderNormalImg=TreeNodes.nodes.new('ShaderNodeTexImage')
 shaderNormalImg.color_space = 'NONE'
@@ -251,21 +247,20 @@ converterNormalMap.location = 100,0
 links.new(shaderNormalImg.outputs[0], converterNormalMap.inputs[1])
 links.new(converterNormalMap.outputs[0], shaderPrincipledBSDF.inputs[17])
 " >> .\import.txt
-						}
-					}  # foreach texture
-				}  # !proxy
-	            "### END Material:  $matname " >> .\import.txt
+					}
+				}  # foreach texture
+	        "### END Material:  $matname " >> .\import.txt
 			}
 			"" >> .\import.txt
         } # Foreach submat
     }
 }
 
-# Get a list of the materials created; they will be needed
-"materialList = []
+# Get a dictionary of the materials created; they will be needed
+"materialList = {}
 for m in bpy.data.materials:
-    materialList.append(m.name)
-" >> .\import.txt
+    materialList[m.name] = m
+ " >> .\import.txt
 
 #  *** PARSING DAEs ***
 #  Start parsing out the different object files in the directory.
@@ -283,17 +278,23 @@ foreach ($file in (Get-ChildItem -filter "*.dae")) {
 	$parsedline += $scriptimportCollada + "(filepath='$directory\\$filename',find_chains=True,auto_connect=True)" 
 
     # Set $objectname to active object
-    $parsedline += $scriptscene + "=bpy.data.objects[`"$objectname`"]"
-    $parsedline += $scriptclearmaterial
-	# for each material in the library_materials, add it to the object's materials.
-	[xml] $daeFile = get-content ($directory+ "\" + $filename)
-	$daeFile.COLLADA.library_materials.material | % {
-		$mat = $_.name
-		$parsedline += "bpy.context.object.data.materials.append($mat)"
-	}
+    $parsedline += "obj = " + $scriptscene + "=bpy.data.objects[`"$objectname`"]"
+    #$parsedline += $scriptclearmaterial
+	# for each material in the library_materials, replace the default material with the node layout material.
+$parsedline += 
+"for mats in obj.material_slots:
+	if mats.name[-3:].isdigit() and `"b_`" + mats.name[:-4] == materialList[`"b_`" + mats.name[:-4]].name:
+		mats.material = materialList[`"b_`" + mats.name[:-4]]
+	elif not mats.name[-3:].isdigit() and `"b_`" + mats.name == materialList[`"b_`" + mats.name].name:
+		mats.material = materialList[`"b_`" + mats.name]
+ " 
+	#[xml] $daeFile = get-content ($directory+ "\" + $filename)
+	#$daeFile.COLLADA.library_materials.material | % {
+	#	$mat = "b_" +  $_.name
+	#	$parsedline += "bpy.context.object.data.materials.append($mat)"
+	#}
 	#$parsedline += "bpy.context.object.data.materials.append($matname)"
-
-	$parsedline += ""
+	#$parsedline += ""
 
 	foreach ( $line in $parsedline ) {
 		#write-host $line
