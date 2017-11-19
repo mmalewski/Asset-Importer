@@ -213,7 +213,7 @@ links.new(shaderPrincipledBSDF.outputs[0], shout.inputs[0])
 
 					if ( $_.Map -eq "Diffuse") {
 						#Diffuse Material
-						$matdiffuse = $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace("/","\\")  #assumes diffuse is in slot 0
+						$matdiffuse = $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace(".TIF","$imageformat").replace("/","\\")  #assumes diffuse is in slot 0
 "matDiffuse = bpy.data.images.load(filepath=`"$basedir\\$matdiffuse`", check_existing=True)
 shaderDiffImg=TreeNodes.nodes.new('ShaderNodeTexImage')
 shaderDiffImg.image=matDiffuse
@@ -224,7 +224,7 @@ links.new(shaderDiffImg.outputs[0], shaderPrincipledBSDF.inputs[0])
                         
 					if ($_.Map -eq "Specular") {
 						# Specular
-						$matspec =  $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace("/","\\") 
+						$matspec =  $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace(".TIF","$imageformat").replace("/","\\") 
 "matSpec=bpy.data.images.load(filepath='$basedir\\$matspec', check_existing=True)
 shaderSpecImg=TreeNodes.nodes.new('ShaderNodeTexImage')
 shaderSpecImg.color_space = 'NONE'
@@ -236,7 +236,7 @@ links.new(shaderSpecImg.outputs[0], shaderPrincipledBSDF.inputs[5])
                     
 					if ($_.Map -eq "Bumpmap") {
 						# Normal
-						$matnormal =  $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace("/","\\") 
+						$matnormal =  $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace(".TIF","$imageformat").replace("/","\\") 
 "matNormal=bpy.data.images.load(filepath=`"$basedir\\$matnormal`", check_existing=True)
 shaderNormalImg=TreeNodes.nodes.new('ShaderNodeTexImage')
 shaderNormalImg.color_space = 'NONE'
