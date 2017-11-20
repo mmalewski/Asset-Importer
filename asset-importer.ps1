@@ -18,7 +18,8 @@ param (
 	[string]$objectdir,                   # Where the game .pak files are extracted to.
 	[switch]$dae = $true,                 # Defaults to Collada.  If cgf-exporter gets more exporters, there will be more options for this.
 	[switch]$obj = $false,
-	[string]$imageformat = ".dds"          # Default image file format.  If you want to use .pngs, change this (although you probably don't want to.
+	[string]$imageformat = ".dds"         # Default image file format.  If you want to use .pngs, change this (although you probably don't want to.
+	#[switch]$generatepreviews = $false    # If set to true, will generate previews in the library.  This may take some time, but is generally a good idea.
 )
 
 # Python commands used by Blender
@@ -34,7 +35,7 @@ $scriptsetobjectmode = "bpy.ops.object.mode_set(mode = `"OBJECT`")"
 $scriptclearmaterial = "bpy.context.object.data.materials.clear(update_data=True)"   #only works with 2.69 or newer
 
 function Get-Usage {
-    Write-host "Usage:  asset-importer.ps1 [-objectdir `"<directory to \Object>`"] <[-dae]|[-obj]> <-imageformat [dds|tif]>" -ForegroundColor Green
+    Write-host "Usage:  asset-importer.ps1 [-objectdir `"<directory to \Object>`"] <[-dae]|[-obj]> <-imageformat [dds|tif]> <-generatepreviews NYI>" -ForegroundColor Green
 	Write-Host "        Goes through a directory looking for .dae files created from cgf-converter and makes"
 	Write-Host "        an import.txt file with the import information for all the files in the directory.  This"
 	Write-Host "        can be pasted into the Blender python console.  This will also create the proper Cycles "
@@ -68,8 +69,8 @@ if (!$dae -and $obj) {
 } 
 
 if (!$objectdir) {
-	Write-Host "No -objectdir specified.  Will default to d:\blender projects\mechs\.  THIS IS PROBABLY NOT WHAT YOU WANT." -ForegroundColor Yellow
 	$basedir = "d:\blender projects\mechs\"    # this is where you extracted all the *.pak files from the game. \objects, \textures etc.  This is my settings
+	Write-Host "No -objectdir specified.  Will default to $basedir.  THIS IS PROBABLY NOT WHAT YOU WANT." -ForegroundColor Yellow
 } 
 else {
 	$basedir = $objectdir
@@ -103,7 +104,7 @@ catch  {
 [System.Collections.ArrayList]$materialList = New-Object System.Collections.ArrayList
 
 foreach ($file in (get-childitem -filter *.mtl) ) {        # create material for each material in the .mtl files
-    Write-Host "Material file is $file"
+    Write-Host "Material file is $file" -ForegroundColor Green
 
     # *** MATERIALS ***
     # Load up materials from the <mtl> file
@@ -117,17 +118,18 @@ foreach ($file in (get-childitem -filter *.mtl) ) {        # create material for
         #write-host "File is $file"
         #$material = $matfile.Material
         #Write-host "Material flag is $material.mtlflags"
-        $matname = "b_" + $file.name.Substring(0,($file.tostring().Length-4))   # make $matname the name of the material file
+        $matname = $file.name.Substring(0,($file.tostring().Length-4))   # make $matname the name of the material file
+		$pymatname = "b_" + $file.name.Substring(0,($file.tostring().Length-4))   # make $matname the name of the material file
 		if (!($materialList -contains $matname)) 
 		{
 		        " " >> .\import.txt
 			"### Material:  $matname" >> .\import.txt
 			$materialList.Add($matname)
 
-			"$matname=bpy.data.materials.new('$matname')"  >> .\import.txt
-			"$matname.use_nodes=True" >> .\import.txt
-			"$matname.active_node_material" >> .\import.txt
-			"TreeNodes = $matname.node_tree" >> .\import.txt
+			"$pymatname=bpy.data.materials.new('$matname')"  >> .\import.txt
+			"$pymatname.use_nodes=True" >> .\import.txt
+			"$pymatname.active_node_material" >> .\import.txt
+			"TreeNodes = $pymatname.node_tree" >> .\import.txt
 			"links = TreeNodes.links" >> .\import.txt
 
 "for n in TreeNodes.nodes:
@@ -185,22 +187,23 @@ links.new(converterNormalMap.outputs[0], shaderPrincipledBSDF.inputs[17])
 	{
         $matfile.Material.SubMaterials.Material| % {
             $material = $_
-            $matname = "b_" + $material.Name   # $matname is the name of the material
+			$pymatname = "b_" + $material.Name   # matname with letter to deal with materials that start with numbers (e.g. 2D_Pipes).
+            $matname = $material.Name   # $matname is the name of the material
 			if (!($materialList -contains $matName)) {
 				"" >> .\import.txt
 				"### START Material:  $matname" >> .\import.txt
-				$materialList.Add($matname)
-				"$matname=bpy.data.materials.new('$matname')"  >> .\import.txt
-				"$matname.use_nodes=True" >> .\import.txt
-				"$matname.active_node_material" >> .\import.txt
-				"TreeNodes = $matname.node_tree" >> .\import.txt
+				[void]$materialList.Add($matname)
+				"$pymatname=bpy.data.materials.new('$matname')"  >> .\import.txt
+				"$pymatname.use_nodes=True" >> .\import.txt
+				"$pymatname.active_node_material" >> .\import.txt
+				"TreeNodes = $pymatname.node_tree" >> .\import.txt
 				"links = TreeNodes.links" >> .\import.txt
 
 				"for n in TreeNodes.nodes:" >> .\import.txt
 				"    TreeNodes.nodes.remove(n)" >> .\import.txt
 				" " >> .\import.txt
 
-				write-host "Material Name is $matname"
+				write-host "    Material Name is $matname"
 				# Every material will have a PrincipleBSDF and Material output.  Add, place and link those
 "shaderPrincipledBSDF = TreeNodes.nodes.new('ShaderNodeBsdfPrincipled')
 shaderPrincipledBSDF.location =  300,500
@@ -208,9 +211,7 @@ shout=TreeNodes.nodes.new('ShaderNodeOutputMaterial')
 shout.location = 500,500
 links.new(shaderPrincipledBSDF.outputs[0], shout.inputs[0])
 " >> .\import.txt
-
 				$_.textures.Texture  | % {
-
 					if ( $_.Map -eq "Diffuse") {
 						#Diffuse Material
 						$matdiffuse = $_.file.replace(".tif","$imageformat").replace(".dds","$imageformat").replace(".TIF","$imageformat").replace("/","\\")  #assumes diffuse is in slot 0
@@ -283,21 +284,12 @@ foreach ($file in (Get-ChildItem -filter "*.dae")) {
 	# for each material in the library_materials, replace the default material with the node layout material.
 $parsedline += 
 "for mats in obj.material_slots:
-	if mats.name[-3:].isdigit() and `"b_`" + mats.name[:-4] == materialList[`"b_`" + mats.name[:-4]].name:
-		mats.material = materialList[`"b_`" + mats.name[:-4]]
-	elif not mats.name[-3:].isdigit() and `"b_`" + mats.name == materialList[`"b_`" + mats.name].name:
-		mats.material = materialList[`"b_`" + mats.name]
- " 
-	#[xml] $daeFile = get-content ($directory+ "\" + $filename)
-	#$daeFile.COLLADA.library_materials.material | % {
-	#	$mat = "b_" +  $_.name
-	#	$parsedline += "bpy.context.object.data.materials.append($mat)"
-	#}
-	#$parsedline += "bpy.context.object.data.materials.append($matname)"
-	#$parsedline += ""
-
+	if mats.name[-3:].isdigit() and mats.name[:-4] == materialList[mats.name[:-4]].name:
+		mats.material = materialList[mats.name[:-4]]
+	elif not mats.name[-3:].isdigit() and mats.name == materialList[mats.name].name:
+		mats.material = materialList[mats.name]
+" 
 	foreach ( $line in $parsedline ) {
-		#write-host $line
 		$line >> .\import.txt
 	}
 }
@@ -308,7 +300,23 @@ $parsedline +=
 		for space in area.spaces: 
 			if space.type == 'VIEW_3D': 
 				space.viewport_shade = 'MATERIAL'
-				" >> .\import.txt
+" >> .\import.txt
 
+#For each object, create a Group with the same name to make Linking in other blend files simpler.
+"Generate Groups for each object." >> .\import.txt
+"for obj in bpy.context.selectable_objects:
+	if (obj.name != 'Camera' and obj.name != 'Lamp' and obj.name != 'Cube'):
+		bpy.data.groups.new(obj.name)
+		bpy.data.groups[obj.name].objects.link(obj)
+" >> .\import.txt
+
+#TODO:  Batch generate previews 
+#		bpy.ops.wm.previews_batch_generate(files=[{"name":"mechbay_elevator_a.blend", "name":"mechbay_elevator_a.blend"}], directory="D:\\depot\\MWO\\Objects\\environments\\frontend\\mechlab_a\\mechbay_elevator_a\\")
+#		From https://www.youtube.com/watch?v=7LGVgQm863E
+#if ($generatepreviews) {
+#"
+
+#"	 >> .\import.txt
+#}
 
 " " >> .\import.txt # Send a final line feed.
