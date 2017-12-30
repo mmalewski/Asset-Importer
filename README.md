@@ -1,3 +1,5 @@
+# This project is archived.  All features have been migrated to [Cryengine Importer](https://github.com/markemp/cryengine-importer).
+
 ## Asset-Importer
 Used to help convert .dae files from Cryengine into something Blender can use more effectively.
 
